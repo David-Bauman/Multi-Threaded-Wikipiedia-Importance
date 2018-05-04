@@ -23,7 +23,7 @@ std::mutex urlsLock;
 std::mutex importanceLock;
 
 void save(int s){
-    for (int i =0; i < num_threads; i++) {
+    for (int i = 0; i < num_threads; i++) {
         pthread_cancel(threads[i]);
     }
     for (int i = 0; i < num_threads; i++) {
@@ -67,7 +67,7 @@ void getText(int id, CURL* curl) {
     urlsLock.unlock();
     totalURL = "https://en.wikipedia.org/w/api.php?action=query&titles="+page+
       "&prop=revisions&rvprop=content&format=json&formatversion=2";
-    char charURL[1000];
+    char charURL[totalURL.length()+1];
     for (i = 0; i < totalURL.length(); i++) {
         charURL[i] = totalURL[i];
     }
@@ -75,7 +75,7 @@ void getText(int id, CURL* curl) {
 
     std::string response_string;
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_string);
-    curl_easy_setopt(curl, CURLOPT_URL, charURL);
+    curl_easy_setopt(curl, CURLOPT_URL, &charURL);
     if (!curl_easy_perform(curl)) {
         for (i = 0; i < response_string.size()-10; i++) {
             if (response_string[i] == '[' && response_string[i-1] == '[') {
