@@ -1,4 +1,4 @@
-//clang++ -g --std=c++11 -Werror -lcurl -pthread creatingimportance.cpp -o runme
+//clang++ -g --std=c++11 -Werror -lcurl -pthread -O3 creatingimportance.cpp -o runme
 #include <iostream>
 #include <unordered_map>
 #include <fstream>
@@ -10,19 +10,16 @@
 #include <thread>
 #include <mutex>
 
-int num_threads;
-std::unordered_map <std::string,int> importance;
+int num_threads, counter;
+std::unordered_map <std::string, int> importance;
 std::vector<std::string> urls;
 auto startTime = std::chrono::system_clock::now();
-int counter;
 CURL* curls[24];
 std::chrono::duration<double> elapsed_seconds;
-typedef std::unordered_map<int, pthread_t> ThreadMap;
-ThreadMap threads;
-std::mutex urlsLock;
-std::mutex importanceLock;
+std::unordered_map<int, pthread_t> threads;
+std::mutex urlsLock, importanceLock;
 
-void save(int s){
+void save(int s) {
     for (int i = 0; i < num_threads; i++) {
         pthread_cancel(threads[i]);
     }
@@ -33,7 +30,7 @@ void save(int s){
     double duration = elapsed_seconds.count();
     std::cout << "\n" << counter << " urls were searched in " << duration
       << " seconds, good for " << counter/duration <<  " pages/second. " <<
-      urls.size() << " urls to go.\n";
+      urls.size() << " urls to go." << std::endl;
     startTime = std::chrono::system_clock::now();
     std::ofstream outfile("importance");
     for (auto it = importance.begin(); it != importance.end(); ++it) {
@@ -47,64 +44,57 @@ void save(int s){
     urlfile.close();
     elapsed_seconds = std::chrono::system_clock::now() - startTime;
     printf("\nWriting to files took %g seconds.\n", elapsed_seconds.count());
-    exit(0);
+    exit(s);
 }
 
-size_t writeFunction(void *ptr, size_t size, size_t nmemb, std::string* data) {
+size_t writeFunction(void *ptr, size_t size, size_t nmemb, std::string * data) {
     data->append((char*) ptr, size * nmemb);
     return size * nmemb;
 }
 
 void getText(int id, CURL* curl) {
-  std::string totalURL, page;
-  char hrefChar[200];
-  int i, j, pos;
+  std::string totalURL, page, responseString, hrefStr;
+  int i, j, pos, res;
+  char temp;
   while (1) {
     urlsLock.lock();
     page = urls.back();
     urls.pop_back();
     counter++;
     urlsLock.unlock();
+    responseString = "";
     totalURL = "https://en.wikipedia.org/w/api.php?action=query&titles="+page+
       "&prop=revisions&rvprop=content&format=json&formatversion=2";
-    char charURL[totalURL.length()+1];
-    for (i = 0; i < totalURL.length(); i++) {
-        charURL[i] = totalURL[i];
-    }
-    charURL[i] = '\0';
-
-    std::string response_string;
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_string);
-    curl_easy_setopt(curl, CURLOPT_URL, &charURL);
-    if (!curl_easy_perform(curl)) {
-        for (i = 0; i < response_string.size()-10; i++) {
-            if (response_string[i] == '[' && response_string[i-1] == '[') {
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseString);
+    curl_easy_setopt(curl, CURLOPT_URL, totalURL.c_str());
+    res = curl_easy_perform(curl);
+    if (!res) {
+        for (i = 0; i < responseString.size()-10; i++) {
+            if (responseString[i] == '[' && responseString[i-1] == '[') {
                 j = i + 1;
-                pos = 0;
-                if (response_string.substr(j, 5) == "File:"){}
-                else if (response_string.substr(j,6) == "Image:"){}
-                else if (response_string.substr(j,9) == "Category:"){break;}
+
+                if (responseString.substr(j, 5) == "File:"){continue;}
+                else if (responseString.substr(j, 6) == "Image:"){continue;}
+                else if (responseString.substr(j, 8) == "Special:"){continue;}
+                else if (responseString.substr(j, 9) == "Category:"){break;}
                 else {
-                    while ((response_string[j] != ']') && (response_string[j] != '|') && (response_string[j] != '#')) {
-                        if (response_string[j] == ' ') {
-                            hrefChar[pos] = '_';
-                        }
-                        else {
-                            hrefChar[pos] = response_string[j];
+                    hrefStr = "";
+                    temp = responseString[j];
+                    while ((temp != ']') && (temp != '|') && (temp != '#')) {
+                        if (temp == ' ') {
+                            hrefStr += '_';
+                        } else {
+                            hrefStr += temp;
                         }
                         j++;
-                        pos++;
+                        temp = responseString[j];
                     }
-                    std::string hrefStr(hrefChar);
-                    for (int y = 0; y < 200; y++) {
-                        hrefChar[y] = '\0';
-                    }
-                    if (!(hrefStr.length() < 1) && hrefStr != "Main_Page") {
+                    if (hrefStr.length() > 0 && hrefStr != "Main_Page") {
                         importanceLock.lock();
-                        try {
+                        if (importance.count(hrefStr) == 1) {
                             importance.at(hrefStr) += 1;
                             importanceLock.unlock();
-                        } catch (std::exception e) {
+                        } else {
                             importance[hrefStr] = 1;
                             importanceLock.unlock();
                             urlsLock.lock();
@@ -116,7 +106,7 @@ void getText(int id, CURL* curl) {
             }
         }
     } else {
-        std::cout << "Bad link: " << charURL << " \n";
+        std::cout << "Bad link: " << totalURL << " gives an error code of " << res << " \n";
     }
     if (!urls.size()) {
         if (!id) {
@@ -143,7 +133,7 @@ int main() {
         }
         infile.close();
     } else {
-        std::cout << "no importance file found\n";
+        std::cout << "no importance file found" << std::endl;
         importance = {{"Wolmirstedt_(Verwaltungsgemeinschaft)",0},{"NASA",0},
           {"The_Race_(Seinfeld)",0},{"Secretary_for_Petroleum",0}, {"Mango",0},
           {"Francisco_Trevino",0},{"Louis_d'Auvigny",0},{"Nathaniel_Uring",0},
@@ -160,7 +150,7 @@ int main() {
         page = urls.back();
         urls.pop_back();
     } else {
-        std::cout << "no urls file found\n";
+        std::cout << "no urls file found" << std::endl;
         urls.push_back("Mango");
         urls.push_back("NASA");
         urls.push_back("Goniodromites");
@@ -189,12 +179,12 @@ int main() {
         actualThreads[i] = std::thread(getText,i,curls[i]);
         threads[i] = actualThreads[i].native_handle();
     }
+    std::cout << "All threads started" << std::endl;
     startTime = std::chrono::system_clock::now();
 
     for (int i = 0; i < num_threads; i++) {
         actualThreads[i].join();
     }
     delete[] actualThreads;
-    save(12);
-    return 0;
+    save(0);
 }
