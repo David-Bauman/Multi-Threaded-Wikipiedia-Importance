@@ -6,11 +6,20 @@
 
 ## What is it?
 
-This analyzer is a C++, multi-threaded implementation of [Wikipedia Importance Analyzer](https://github.com/David-Bauman/Wikipedia-Importance). It currently does the same analysis as the Python version, has the same capabilities (such as pausing), and includes a file to make the data human readable. The major difference is the addition of a compile step.
+This analyzer is a C++, multi-threaded implementation of [Wikipedia Importance Analyzer](https://github.com/David-Bauman/Wikipedia-Importance). It currently does the same analysis as the Python version, has the same capabilities (such as pausing), and includes a file to make the data human readable. See the Python version's [docs](https://github.com/David-Bauman/Wikipedia-Importance) for most relevant information. The major differences are the addition of a [compile step](#compiling) and a massive increase in [speed](#speed).
 
 ## Compiling
 
 Both programs, `creatingimportance` and `makeimportanceusable`, are C++ files. Use your favorite compiler and be sure to link the thread and curl libraries! Included as the first line in each file is a suggested compilation command.
+
+## Speed
+
+This project achieves a non-linear increase in speed as more threads are added.
+
+- 1 thread. ~12 pages/second. Note that just switching from Python to C++ gave us a 3x boost.
+- 4 threads. ~72 pages/second. We would expect a little under a 4x increase in speed (~40 pages/second to account for threading overhead). Instead we achieve a 6x increase.
+- 8 threads. ~300 pages/second. Another outstanding jump, having expected between ~92 (based off 1 thread time) and ~144 (based off 4 threads time).
+- 12 threads. ~600 pages/second. Ungodly. It takes about 150 minutes to analyze all 5.5 million articles on English Wikipedia.
 
 ## Contributing
 
@@ -32,4 +41,5 @@ If you like the project, I'd love to have your help improving it. Contributions 
 - Handle more threads
 - Allow for user choice of starting pages (read from specific file for instance)
 - Optimize code for those micro second gains!
+- Explain non-linear speed increase in README
 
