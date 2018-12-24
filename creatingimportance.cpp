@@ -9,6 +9,7 @@
 #include <cstring>
 #include <thread>
 #include <mutex>
+#include <math.h>
 
 int num_threads, counter;
 std::unordered_map <std::string, int> importance;
@@ -19,6 +20,16 @@ std::chrono::duration<double> elapsed_seconds;
 std::unordered_map<int, pthread_t> threads;
 std::mutex urlsLock, importanceLock;
 
+inline std::string addCommas(int val){
+  std::string withCommas = std::to_string(val);
+  int pos = withCommas.length() - 3;
+  while (pos > 0) {
+    withCommas.insert(pos, ",");
+    pos -= 3;
+  }
+  return withCommas;
+};
+
 void save(int s) {
     for (int i = 0; i < num_threads; i++) {
         pthread_cancel(threads[i]);
@@ -28,9 +39,9 @@ void save(int s) {
     }
     elapsed_seconds = std::chrono::system_clock::now() - startTime;
     double duration = elapsed_seconds.count();
-    std::cout << "\n" << counter << " urls were searched in " << duration
-      << " seconds, good for " << counter/duration <<  " pages/second. " <<
-      urls.size() << " urls to go." << std::endl;
+    std::cout << "\n" << addCommas(counter) << " urls were searched in " << round(duration * 100) / 100
+      << " seconds, good for " << round(100*counter/duration) / 100 <<  " pages/second. " <<
+      addCommas(urls.size()) << " urls to go." << std::endl;
     startTime = std::chrono::system_clock::now();
     std::ofstream outfile("importance");
     for (auto it = importance.begin(); it != importance.end(); ++it) {
@@ -89,7 +100,7 @@ void getText(int id, CURL* curl) {
                         j++;
                         temp = responseString[j];
                     }
-                    if (hrefStr.length() > 0 && hrefStr != "Main_Page") {
+                    if (hrefStr.length() > 0 && hrefStr != "Main_Page" && hrefStr.find(':') == std::string::npos) {
                         importanceLock.lock();
                         if (importance.count(hrefStr) == 1) {
                             importance.at(hrefStr) += 1;
