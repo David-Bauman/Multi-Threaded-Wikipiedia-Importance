@@ -118,12 +118,17 @@ void getText(int id, CURL* curl) {
 }
 
 int main() {
-    std::cout << "Enter number of threads (max = 24): ";
+    std::cout << "Enter number of threads (max = 12): ";
     std::cin >> num_threads;
     startTime = std::chrono::system_clock::now();
     std::string line, page, refs;
     int pos;
     std::ifstream infile ("importance");
+    std::vector<std::string> initials = {"Wolmirstedt_(Verwaltungsgemeinschaft)", "NASA", 
+        "Goniodromites", "Danfoss", "The_Race_(Seinfeld)", "Secretary_for_Petroleum",
+        "Francisco_Trevino", "Nathaniel_Uring", "Wolmirstedt_(Verwaltungsgemeinschaft)",
+        "Buena_High_School_(California)", "Louis_d'Auvigny", 
+        "2008_European_Pairs_Speedway_Championship"};
     if (infile.is_open()) {
         while(getline(infile,line)) {
             pos = line.find('#');
@@ -134,12 +139,9 @@ int main() {
         infile.close();
     } else {
         std::cout << "no importance file found" << std::endl;
-        importance = {{"Wolmirstedt_(Verwaltungsgemeinschaft)",0},{"NASA",0},
-          {"The_Race_(Seinfeld)",0},{"Secretary_for_Petroleum",0}, {"Mango",0},
-          {"Francisco_Trevino",0},{"Louis_d'Auvigny",0},{"Nathaniel_Uring",0},
-          {"2008_European_Pairs_Speedway_Championship",0},{"Danfoss",0},
-          {"Buena_High_School_(California",0}, {"Goniodromites",0},
-          };
+        for (auto it = initials.begin(); it != initials.end(); it++) {
+            importance.emplace(*it, 0);
+        }
     }
     std::ifstream nextfile ("urls");
     if (nextfile.is_open()) {
@@ -151,18 +153,9 @@ int main() {
         urls.pop_back();
     } else {
         std::cout << "no urls file found" << std::endl;
-        urls.push_back("Mango");
-        urls.push_back("NASA");
-        urls.push_back("Goniodromites");
-        urls.push_back("Danfoss");
-        urls.push_back("The_Race_(Seinfeld)");
-        urls.push_back("Secretary_for_Petroleum");
-        urls.push_back("Francisco_Trevino");
-        urls.push_back("Nathaniel_Uring");
-        urls.push_back("Wolmirstedt_(Verwaltungsgemeinschaft)");
-        urls.push_back("Buena_High_School_(California)");
-        urls.push_back("Louis_d'Auvigny");
-        urls.push_back("2008_European_Pairs_Speedway_Championship");
+        for (auto it = initials.begin(); it != initials.end(); it++) {
+            urls.push_back(*it);
+        }
     }
     elapsed_seconds = std::chrono::system_clock::now() - startTime;
     std::cout << "Getting from files takes " << elapsed_seconds.count() <<
