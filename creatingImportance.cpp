@@ -66,10 +66,19 @@ size_t writeFunction(void *ptr, size_t size, size_t nmemb, std::string * data) {
 
 void getText(int id, CURL* curl) {
   std::string totalURL, page, responseString, hrefStr;
-  int i, j, pos, res;
+  int i, j, pos, res, threadTotal;
+  threadTotal = 0;
   char temp;
   while (1) {
     urlsLock.lock();
+    if (urls.size() == 0) {
+        elapsedSeconds = std::chrono::system_clock::now() - startTime;
+        std::cout << "Thread #" << id << " reporting in. My watch has ended after "
+         << round(elapsedSeconds.count() * 100) / 100 << " seconds and " 
+         << threadTotal << " successful searches." << std::endl;
+        urlsLock.unlock();
+        return;
+    }
     page = urls.back();
     urls.pop_back();
     counter++;
@@ -80,7 +89,7 @@ void getText(int id, CURL* curl) {
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseString);
     curl_easy_setopt(curl, CURLOPT_URL, totalURL.c_str());
     res = curl_easy_perform(curl);
-    if (!res) {
+    if (res == 0) {
         for (i = 0; i < responseString.size()-10; i++) {
             if (responseString[i] == '[' && responseString[i-1] == '[') {
                 j = i + 1;
@@ -117,14 +126,9 @@ void getText(int id, CURL* curl) {
                 }
             }
         }
+        threadTotal++;
     } else {
         std::cout << "Bad link: " << totalURL << " gives an error code of " << res << " \n";
-    }
-    if (!urls.size()) {
-        if (!id) {
-            std::cout << "Looks like it's all over, folks. GG." << "\n";
-        }
-        return;
     }
   }
 }
@@ -154,7 +158,7 @@ int main() {
         std::ifstream infile ("data/initialUrls.txt");
         if (!infile.is_open())
             throw std::runtime_error("Couldn't find any initial urls.");
-        while (getline(infile, line) and urls.size() < numThreads) {
+        while (getline(infile, line) && urls.size() < (numThreads + 5)) {
             importance.emplace(line, 0);
             urls.push_back(line);
         }
@@ -191,6 +195,5 @@ int main() {
     for (int i = 0; i < numThreads; i++) {
         actualThreads[i].join();
     }
-    delete[] actualThreads;
     save(0);
 }
