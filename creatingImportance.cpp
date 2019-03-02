@@ -1,4 +1,3 @@
-//clang++ -g --std=c++11 -Werror -lcurl -pthread -O3 creatingimportance.cpp -o runme
 #include <iostream>
 #include <unordered_map>
 #include <fstream>
@@ -11,16 +10,16 @@
 #include <mutex>
 #include <math.h>
 
-int num_threads, counter;
+int numThreads, counter;
 std::unordered_map <std::string, int> importance;
 std::vector<std::string> urls;
-auto startTime = std::chrono::system_clock::now();
-CURL* curls[24];
-std::chrono::duration<double> elapsed_seconds;
+CURL* curls[100];
+std::chrono::duration<double> elapsedSeconds;
 std::unordered_map<int, pthread_t> threads;
 std::mutex urlsLock, importanceLock;
+auto startTime = std::chrono::system_clock::now();
 
-inline std::string addCommas(int val){
+inline std::string addCommas(int val) {
   std::string withCommas = std::to_string(val);
   int pos = withCommas.length() - 3;
   while (pos > 0) {
@@ -31,30 +30,32 @@ inline std::string addCommas(int val){
 };
 
 void save(int s) {
-    for (int i = 0; i < num_threads; i++) {
+    for (int i = 0; i < numThreads; i++) {
         pthread_cancel(threads[i]);
     }
-    for (int i = 0; i < num_threads; i++) {
+    for (int i = 0; i < numThreads; i++) {
         curl_easy_cleanup(curls[i]);
     }
-    elapsed_seconds = std::chrono::system_clock::now() - startTime;
-    double duration = elapsed_seconds.count();
+    elapsedSeconds = std::chrono::system_clock::now() - startTime;
+    double duration = elapsedSeconds.count();
+
     std::cout << "\n" << addCommas(counter) << " urls were searched in " << round(duration * 100) / 100
       << " seconds, good for " << round(100*counter/duration) / 100 <<  " pages/second. " <<
       addCommas(urls.size()) << " urls to go." << std::endl;
+
     startTime = std::chrono::system_clock::now();
-    std::ofstream outfile("importance");
+    std::ofstream outfile("data/importance.txt");
     for (auto it = importance.begin(); it != importance.end(); ++it) {
         outfile << it->first + "#" + std::to_string(it->second) << "\n";
     }
     outfile.close();
-    std::ofstream urlfile("urls");
+    std::ofstream urlfile("data/urls.txt");
     for (int i = 0; i < urls.size(); i++) {
         urlfile << urls[i] << "\n";
     }
     urlfile.close();
-    elapsed_seconds = std::chrono::system_clock::now() - startTime;
-    printf("\nWriting to files took %g seconds.\n", elapsed_seconds.count());
+    elapsedSeconds = std::chrono::system_clock::now() - startTime;
+    printf("\nWriting to files took %g seconds.\n", elapsedSeconds.count());
     exit(s);
 }
 
@@ -121,7 +122,7 @@ void getText(int id, CURL* curl) {
     }
     if (!urls.size()) {
         if (!id) {
-            printf("Looks like it's all over, folks. GG.");
+            std::cout << "Looks like it's all over, folks. GG." << "\n";
         }
         return;
     }
@@ -129,53 +130,54 @@ void getText(int id, CURL* curl) {
 }
 
 int main() {
-    std::cout << "Enter number of threads (max = 12): ";
-    std::cin >> num_threads;
+    std::cout << "Enter number of threads (max 100): ";
+    std::cin >> numThreads;
+    if (numThreads > 100 || numThreads < 1) {
+        std::cout << "No funny stuff - 100 threads maximum, 1 thread minimum." << std::endl;
+        exit(1);
+    }
     startTime = std::chrono::system_clock::now();
     std::string line, page, refs;
     int pos;
-    std::ifstream infile ("importance");
-    std::vector<std::string> initials = {"Wolmirstedt_(Verwaltungsgemeinschaft)", "NASA", 
-        "Goniodromites", "Danfoss", "The_Race_(Seinfeld)", "Secretary_for_Petroleum",
-        "Francisco_Trevino", "Nathaniel_Uring", "Wolmirstedt_(Verwaltungsgemeinschaft)",
-        "Buena_High_School_(California)", "Louis_d'Auvigny", 
-        "2008_European_Pairs_Speedway_Championship"};
-    if (infile.is_open()) {
-        while(getline(infile,line)) {
+
+    std::ifstream importanceFile ("data/importance.txt");
+    if (importanceFile.is_open()) {
+        while(getline(importanceFile, line)) {
             pos = line.find('#');
             page = line.substr(0,pos);
             refs = line.substr(pos+1,1);
             importance.emplace(page, stoi(refs));
         }
-        infile.close();
+        importanceFile.close();
     } else {
         std::cout << "no importance file found" << std::endl;
-        for (auto it = initials.begin(); it != initials.end(); it++) {
-            importance.emplace(*it, 0);
-        }
-    }
-    std::ifstream nextfile ("urls");
-    if (nextfile.is_open()) {
-        while(getline(nextfile,line)) {
+        std::ifstream infile ("data/initialUrls.txt");
+        if (!infile.is_open())
+            throw std::runtime_error("Couldn't find any initial urls.");
+        while (getline(infile, line) and urls.size() < numThreads) {
+            importance.emplace(line, 0);
             urls.push_back(line);
         }
-        nextfile.close();
-        page = urls.back();
-        urls.pop_back();
+    }
+
+    std::ifstream urlsFile ("data/urls.txt");
+    if (urlsFile.is_open()) {
+        while(getline(urlsFile, line)) {
+            urls.push_back(line);
+        }
+        urlsFile.close();
     } else {
         std::cout << "no urls file found" << std::endl;
-        for (auto it = initials.begin(); it != initials.end(); it++) {
-            urls.push_back(*it);
-        }
     }
-    elapsed_seconds = std::chrono::system_clock::now() - startTime;
-    std::cout << "Getting from files takes " << elapsed_seconds.count() <<
+
+    elapsedSeconds = std::chrono::system_clock::now() - startTime;
+    std::cout << "Getting from files takes " << elapsedSeconds.count() <<
       " seconds.\n";
     counter = 0;
     signal(SIGINT, save);
 
-    std::thread* actualThreads = new std::thread[num_threads];
-    for (int i = 0; i < num_threads; i++){
+    std::thread* actualThreads = new std::thread[numThreads];
+    for (int i = 0; i < numThreads; i++){
         curls[i] = curl_easy_init();
         curl_easy_setopt(curls[i], CURLOPT_USERAGENT, "WikiRider");
         curl_easy_setopt(curls[i], CURLOPT_MAXREDIRS, 50L);
@@ -186,7 +188,7 @@ int main() {
     std::cout << "All threads started" << std::endl;
     startTime = std::chrono::system_clock::now();
 
-    for (int i = 0; i < num_threads; i++) {
+    for (int i = 0; i < numThreads; i++) {
         actualThreads[i].join();
     }
     delete[] actualThreads;

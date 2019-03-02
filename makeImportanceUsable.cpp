@@ -1,11 +1,10 @@
-// clang++ -g --std=c++11 -Werror -O3 makeimportanceusable.cpp -o usable
 #include <iostream>
 #include <fstream>
 #include <queue>
 
 class CompareImportance {
   public:
-    bool operator()(std::pair<int, std::string> lhs, std::pair<int, std::string> rhs){
+    bool operator()(std::pair<int, std::string> lhs, std::pair<int, std::string> rhs) {
       return lhs.first < rhs.first;
     }
 };
@@ -18,7 +17,7 @@ inline void replaceAll(std::string& str, const std::string& from, const std::str
   }
 }
 
-inline std::string addCommas(int val){
+inline std::string addCommas(int val) {
   std::string withCommas = std::to_string(val);
   int pos = withCommas.length() - 3;
   while (pos > 0) {
@@ -30,7 +29,7 @@ inline std::string addCommas(int val){
 
 int main() {
   std::priority_queue<std::pair<int, std::string>, std::vector<std::pair<int, std::string>>, CompareImportance> data;
-  std::ifstream infile ("importance");
+  std::ifstream infile ("data/importance.txt");
 
   std::string line, page, refs;
   int pos;
@@ -49,7 +48,7 @@ int main() {
   std::pair<int, std::string> temp;
 
   for (int i = 0; i < 20; i++) {
-    if (data.empty()){
+    if (data.empty()) {
       break;
     }
     temp = data.top();
