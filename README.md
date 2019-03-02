@@ -10,7 +10,7 @@ This analyzer is a C++, multi-threaded implementation of [Wikipedia Importance A
 
 ## Compiling
 
-Both programs, `creatingimportance` and `makeimportanceusable`, are C++ files. Use your favorite compiler and be sure to link the thread and curl libraries! Included as the first line in each file is a suggested compilation command.
+Both programs, `creatingImportance` and `makeImportanceUsable`, are C++ files. Use your favorite compiler and be sure to link the thread and curl libraries! Included is a Makefile with a suggested compilation.
 
 ## Speed
 
